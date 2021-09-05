@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Kerox\OAuth2\Client\Provider\Spotify;
+use Illuminate\Http\Request;
 
 const DEFAULT_SCOPES = [
     Spotify::SCOPE_USER_READ_RECENTLY_PLAYED,
@@ -33,13 +34,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/connect/spotify', function () use ($provider) {
+Route::get('/connect/spotify', function (Request $request) use ($provider) {
 
     // Optional: Now you have a token you can look up a users profile data4
     try {
+        $code = $request->query->get('code');
         // Try to get an access token (using the authorization code grant)
         $token = $provider->getAccessToken('authorization_code', [
-            'code' => $_GET['code']
+            'code' => $code
         ]);
 
         // We got an access token, let's now get the user's details
@@ -73,25 +75,23 @@ Route::get('/connect/spotify', function () use ($provider) {
 });
 
 Route::post('/connect/spotify', function(Request $request) use ($provider) {
-    if (!isset($_GET['code'])) {
+    $code = $request->query->get('code');
+    $state = $request->query->get('state');
+
+    if (empty($code)) {
         // If we don't have an authorization code then get one
         $authUrl = $provider->getAuthorizationUrl([
-            'scope' => [
-                Kerox\OAuth2\Client\Provider\Spotify::SCOPE_USER_READ_EMAIL,
-            ]
+            'scope' => DEFAULT_SCOPES
         ]);
 
-        $_SESSION['oauth2state'] = $provider->getState();
+        $request->session()->put("oauth2state", $provider->getState());
 
-        header('Location: ' . $authUrl);
-        exit;
+        return redirect($authUrl);
 
     // Check given state against previously stored one to mitigate CSRF attack
-    } elseif (empty($_GET['state']) || ($_GET['state'] !== $_SESSION['oauth2state'])) {
-
-        unset($_SESSION['oauth2state']);
-        echo 'Invalid state.';
-        exit;
-
+    } elseif (empty($state) || ($state !== $request->session()->get("oauth2state", null))) {
+        $request->session()->forget("oauth2state");
+        $request->session()->flash("Invalid data");
+        return view('login');
     }
 });
