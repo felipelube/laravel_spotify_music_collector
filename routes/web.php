@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Kerox\OAuth2\Client\Provider\Spotify;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 const DEFAULT_SCOPES = [
     Spotify::SCOPE_USER_READ_RECENTLY_PLAYED,
@@ -30,48 +31,31 @@ $provider = new Spotify([
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', function (Request $request) {
+    if (empty(cache('spotify_authorization_code')) || empty(cache('spotify_refresh_token')) ) {
+        return redirect('/connect/spotify');
+    }
+    return view('dashboard');
 });
 
 Route::get('/connect/spotify', function (Request $request) use ($provider) {
-
     // Optional: Now you have a token you can look up a users profile data4
     try {
         $code = $request->query->get('code');
-        // Try to get an access token (using the authorization code grant)
+
         $token = $provider->getAccessToken('authorization_code', [
             'code' => $code
         ]);
 
-        // We got an access token, let's now get the user's details
-        /** @var \Kerox\OAuth2\Client\Provider\SpotifyResourceOwner $user */
-        $user = $provider->getResourceOwner($token);
+        cache()->put('spotify_authorization_code', $token->getToken(), $token->getExpires());
+        cache()->put('spotify_refresh_token', $token->getRefreshToken());
 
-        // Use these details to create a new profile
-        printf('Hello %s!', $user->getDisplayName());
-
-        echo '<pre>';
-        var_dump($user);
-        echo '</pre>';
-
+        return redirect("/");
     } catch (Exception $e) {
 
         // Failed to get user details
         return view('login');
     }
-
-    echo '<pre>';
-    // Use this to interact with an API on the users behalf
-    var_dump($token->getToken());
-    # string(217) "CAADAppfn3msBAI7tZBLWg...
-
-    // The time (in epoch time) when an access token will expire
-    var_dump($token->getExpires());
-    # int(1436825866)
-    echo '</pre>';
-
-
 });
 
 Route::post('/connect/spotify', function(Request $request) use ($provider) {
