@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Kerox\OAuth2\Client\Provider\Spotify;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 const DEFAULT_SCOPES = [
     Spotify::SCOPE_USER_READ_RECENTLY_PLAYED,
@@ -35,7 +36,18 @@ Route::get('/', function (Request $request) {
     if (empty(cache('spotify_authorization_code')) || empty(cache('spotify_refresh_token')) ) {
         return redirect('/connect/spotify');
     }
-    return view('dashboard');
+
+    $tracks = cache("spotify_last_20_tracks", function() {
+        $token = cache("spotify_authorization_code");
+        $response = Http::withToken($token)->get('https://api.spotify.com/v1/me/tracks');
+        $tracks = $response->json()["items"];
+        cache()->put("spotify_last_20_tracks", $tracks, now()->addMinutes(60));
+        return $tracks;
+    });
+
+    return view('dashboard', [
+        'tracks' => $tracks
+    ]);
 });
 
 Route::get('/connect/spotify', function (Request $request) use ($provider) {
