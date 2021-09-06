@@ -13,6 +13,7 @@ const DEFAULT_SCOPES = [
     Spotify::SCOPE_USER_LIBRARY_MODIFY,
     Spotify::SCOPE_USER_READ_EMAIL,
     Spotify::SCOPE_USER_LIBRARY_READ,
+    Spotify::SCOPE_PLAYLIST_MODIFY_PUBLIC,
 ];
 
 $provider = new Spotify([
@@ -52,6 +53,69 @@ Route::get('/', function (Request $request) {
         cache()->put("spotify_last_200_tracks", $tracks, now()->addMinutes(60));
         return $tracks;
     });
+
+    $playlists = cache("user_playlists", function () {
+        $playlists = [];
+        $nextUrl = 'https://api.spotify.com/v1/me/playlists';
+        do {
+            $token = cache("spotify_authorization_code");
+            $response = Http::withToken($token)->get($nextUrl)->json();
+            $playlists = array_merge($playlists, $response["items"]);
+            $nextUrl = $response["next"];
+
+        } while(!empty($nextUrl));
+        //cache()->put("user_playlists", $playlists, now()->addMinutes(60));
+        return $playlists;
+    });
+
+    $datetime_playlists = array_reduce($playlists, function($datetime_playlists, $playlist) {
+        if (preg_match("/^\w+\s\d{4}$/", $playlist["name"])) {
+            $datetime_playlists[$playlist["name"]] = $playlist;
+        }
+        return $datetime_playlists;
+    }, []);
+
+    $last_tracks_by_month_and_year = array_reduce($tracks, function($last_tracks_by_month_and_year, $track) {
+        $added_date = DateTime::createFromFormat(DateTime::RFC3339, $track['added_at']);
+        if ($added_date) {
+            $month_and_year = $added_date->format('F Y');
+
+            if (array_key_exists($month_and_year, $last_tracks_by_month_and_year)) {
+                array_push($last_tracks_by_month_and_year[$month_and_year], $track);
+            } else {
+                $last_tracks_by_month_and_year[$month_and_year] = [$track];
+            }
+        }
+        return $last_tracks_by_month_and_year;
+    }, []);
+
+    foreach ($last_tracks_by_month_and_year as $playlist_name => $tracks) {
+        $uris = array_map(function($track) {
+            return $track["track"]["uri"];
+        }, $tracks);
+        $profile_id = $profile["id"];
+
+        if (array_key_exists($playlist_name, $datetime_playlists)) {
+            $existing_playlist = $datetime_playlists[$playlist_name];
+            $playlist_id = $existing_playlist["id"];
+
+            $token = cache("spotify_authorization_code");
+            Http::withToken($token)->put("https://api.spotify.com/v1/playlists/$playlist_id/tracks", [
+                'uris' => $uris
+            ]);
+        } else {
+            $token = cache("spotify_authorization_code");
+            $response = Http::withToken($token)->post("https://api.spotify.com/v1/users/$profile_id/playlists", [
+                'name' => $playlist_name,
+            ]);
+            $created_playlist = $response->json();
+            $created_playlist_id = $created_playlist["id"];
+            //cache()->forget("user_playlists");
+            Http::withToken($token)->put("https://api.spotify.com/v1/playlists/$created_playlist_id/tracks", [
+                'uris' => $uris
+            ]);
+        }
+    }
 
     return view('dashboard', [
         'tracks' => $tracks
