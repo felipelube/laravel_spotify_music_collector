@@ -36,7 +36,33 @@ class SpotifyService {
       ->get('https://api.spotify.com/v1/me')->json();
   }
 
-  function getUserPlaylists($accessToken) {
+  public function getAccessToken() {
+    $accessToken = cache("spotify_access_token");
+    if (!empty($accessToken)) {
+      try {
+        if ($accessToken->hasExpired()) {
+          $newAccessToken = $this->provider->getAccessToken("refresh_token", [
+            "refresh_token" => $accessToken->getRefreshToken()
+          ]);
+          $this->setAccessToken($newAccessToken);
+        }
+        return $accessToken;
+      } catch(Exception $e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  private function setAccessToken(AccessToken $accessToken) {
+    cache()->put("spotify_access_token", $accessToken);
+  }
+
+  function setAccessTokenFromCode($code) {
+    $this->setAccessToken($this->provider->getAccessToken('authorization_code', [
+        'code' => $code
+    ]));
+  }
     $playlists = [];
     $nextUrl = 'https://api.spotify.com/v1/me/playlists';
     do {
