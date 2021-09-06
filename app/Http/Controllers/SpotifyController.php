@@ -13,11 +13,8 @@ class SpotifyController extends Controller
         try {
             $code = $request->query->get('code');
 
-            $accessToken = $spotifyService->provider->getAccessToken('authorization_code', [
-                'code' => $code
-            ]);
+            $spotifyService->setAccessTokenFromCode($code);
 
-            cache()->put('spotify_access_token', $accessToken);
             return redirect("/");
         } catch(Exception $e) {
             return view('login');
@@ -29,11 +26,9 @@ class SpotifyController extends Controller
         $state = $request->query->get('state');
 
         if (empty($code)) {
-            $authUrl = $spotifyService->provider->getAuthorizationUrl([
-                'scope' => SpotifyService::DEFAULT_SCOPES
-            ]);
+            $authUrl = $spotifyService->getAuthorizationUrl();
 
-            $request->session()->put("oauth2state", $spotifyService->provider->getState());
+            $request->session()->put("oauth2state", $spotifyService->getProviderState());
 
             return redirect($authUrl);
 
