@@ -127,16 +127,11 @@ Route::get('/connect/spotify', function (Request $request) use ($provider) {
     try {
         $code = $request->query->get('code');
 
-        $token = $provider->getAccessToken('authorization_code', [
+        $accessToken = $provider->getAccessToken('authorization_code', [
             'code' => $code
         ]);
 
-        $cacheExpirationDate = new DateTime();
-        $cacheExpirationDate->setTimestamp($token->getExpires());
-
-        cache()->put('spotify_authorization_code', $token->getToken(), $cacheExpirationDate);
-        cache()->put('spotify_refresh_token', $token->getRefreshToken());
-
+        cache()->put('spotify_access_token', $accessToken);
         return redirect("/");
     } catch (Exception $e) {
 
