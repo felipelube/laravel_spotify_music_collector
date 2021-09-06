@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use Exception;
 use Kerox\OAuth2\Client\Provider\Spotify;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use League\OAuth2\Client\Token\AccessToken;
 
 class SpotifyService {
 
@@ -68,10 +70,17 @@ class SpotifyService {
         'code' => $code
     ]));
   }
+
+  function getUserProfile() {
+    return Http::withToken($this->getAccessToken()->getToken())
+      ->get('https://api.spotify.com/v1/me')->json();
+  }
+
+  function getUserPlaylists() {
     $playlists = [];
     $nextUrl = 'https://api.spotify.com/v1/me/playlists';
     do {
-        $response = Http::withToken($accessToken->getToken())
+        $response = Http::withToken($this->getAccessToken()->getToken())
           ->get($nextUrl)
           ->json();
         $playlists = array_merge($playlists, $response["items"]);
@@ -82,11 +91,11 @@ class SpotifyService {
     return $playlists;
   }
 
-  function getLastTracks($accessToken, $maxQuantity = 200) {
+  function getLastTracks($maxQuantity = 200) {
     $tracks = [];
     $nextUrl = 'https://api.spotify.com/v1/me/tracks';
     do {
-        $response = Http::withToken($accessToken->getToken())
+        $response = Http::withToken($this->getAccessToken()->getToken())
           ->get($nextUrl);
         $tracks = array_merge($tracks, $response->json()["items"]);
         $nextUrl = $response["next"];
@@ -119,7 +128,7 @@ class SpotifyService {
     }, []);
   }
 
-  function createPlaylistsForLastTracks($accessToken, $playlistsOfLastTracks, $dateTimePlaylists, $userProfile) {
+  function createPlaylistsForLastTracks($playlistsOfLastTracks, $dateTimePlaylists, $userProfile) {
     foreach ($playlistsOfLastTracks as $playlist_name => $tracks) {
         $uris = array_map(function($track) {
             return $track["track"]["uri"];
@@ -130,17 +139,17 @@ class SpotifyService {
             $existing_playlist = $dateTimePlaylists[$playlist_name];
             $playlist_id = $existing_playlist["id"];
 
-            Http::withToken($accessToken->getToken())->put("https://api.spotify.com/v1/playlists/$playlist_id/tracks", [
+            Http::withToken($this->getAccessToken()->getToken())->put("https://api.spotify.com/v1/playlists/$playlist_id/tracks", [
                 'uris' => $uris
             ]);
         } else {
-            $response = Http::withToken($accessToken->getToken())->post("https://api.spotify.com/v1/users/$userProfileId/playlists", [
+            $response = Http::withToken($this->getAccessToken()->getToken())->post("https://api.spotify.com/v1/users/$userProfileId/playlists", [
                 'name' => $playlist_name,
             ]);
             $created_playlist = $response->json();
             $created_playlist_id = $created_playlist["id"];
             //cache()->forget("user_playlists");
-            Http::withToken($accessToken->getToken())->put("https://api.spotify.com/v1/playlists/$created_playlist_id/tracks", [
+            Http::withToken($this->getAccessToken()->getToken())->put("https://api.spotify.com/v1/playlists/$created_playlist_id/tracks", [
                 'uris' => $uris
             ]);
         }
