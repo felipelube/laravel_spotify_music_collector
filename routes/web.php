@@ -16,9 +16,9 @@ const DEFAULT_SCOPES = [
 ];
 
 $provider = new Spotify([
-    'clientId'     => '0291fccdd6ed4d039949c66e52805d9b',
-    'clientSecret' => '5d947fb889d344c9ae2848099b247425',
-    'redirectUri'  => 'http://localhost:8000/connect/spotify',
+    'clientId'     => env("SPOTIFY_CLIENT_ID"),
+    'clientSecret' => env("SPOTIFY_CLIENT_SECRET"),
+    'redirectUri'  => env("SPOTIFY_REDIRECT_URL"),
 ]);
 
 /*
