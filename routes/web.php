@@ -16,9 +16,9 @@ const DEFAULT_SCOPES = [
 ];
 
 $provider = new Spotify([
-    'clientId'     => env("SPOTIFY_CLIENT_ID"),
-    'clientSecret' => env("SPOTIFY_CLIENT_SECRET"),
-    'redirectUri'  => env("SPOTIFY_REDIRECT_URL"),
+    'clientId'     => '0291fccdd6ed4d039949c66e52805d9b',
+    'clientSecret' => '5d947fb889d344c9ae2848099b247425',
+    'redirectUri'  => 'http://localhost:8000/connect/spotify',
 ]);
 
 /*
@@ -39,9 +39,16 @@ Route::get('/', function (Request $request) {
 
     $tracks = cache("spotify_last_20_tracks", function() {
         $token = cache("spotify_authorization_code");
-        $response = Http::withToken($token)->get('https://api.spotify.com/v1/me/tracks');
-        $tracks = $response->json()["items"];
-        cache()->put("spotify_last_20_tracks", $tracks, now()->addMinutes(60));
+    $tracks = cache("spotify_last_200_tracks", function() {
+        $tracks = [];
+        $nextUrl = 'https://api.spotify.com/v1/me/tracks';
+        do {
+            $token = cache("spotify_authorization_code");
+            $response = Http::withToken($token)->get($nextUrl);
+            $tracks = array_merge($tracks, $response->json()["items"]);
+            $nextUrl = $response["next"];
+        } while(!empty($nextUrl) && sizeof($tracks) <= 200);
+        cache()->put("spotify_last_200_tracks", $tracks, now()->addMinutes(60));
         return $tracks;
     });
 
