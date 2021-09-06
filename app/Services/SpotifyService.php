@@ -11,9 +11,9 @@ class SpotifyService {
   /**
    * @var Kerox\OAuth2\Client\Provider\Spotify
    */
-  private $provider;
+  public $provider;
 
-  const DEFAULT_SCOPES = [
+  public const DEFAULT_SCOPES = [
       Spotify::SCOPE_USER_READ_RECENTLY_PLAYED,
       Spotify::SCOPE_PLAYLIST_MODIFY_PRIVATE,
       Spotify::SCOPE_PLAYLIST_READ_PRIVATE,
