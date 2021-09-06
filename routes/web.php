@@ -37,8 +37,9 @@ Route::get('/', function (Request $request) {
         return redirect('/connect/spotify');
     }
 
-    $tracks = cache("spotify_last_20_tracks", function() {
-        $token = cache("spotify_authorization_code");
+    $token = cache("spotify_authorization_code");
+    $profile = Http::withToken($token)->get('https://api.spotify.com/v1/me')->json();
+
     $tracks = cache("spotify_last_200_tracks", function() {
         $tracks = [];
         $nextUrl = 'https://api.spotify.com/v1/me/tracks';
