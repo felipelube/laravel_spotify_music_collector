@@ -31,9 +31,14 @@ class SpotifyService {
     ]);
   }
 
-  function getUserProfile($accessToken) {
-    return Http::withToken($accessToken->getToken())
-      ->get('https://api.spotify.com/v1/me')->json();
+  public function getAuthorizationUrl() {
+    return $this->provider->getAuthorizationUrl([
+      'scope' => SpotifyService::DEFAULT_SCOPES
+    ]);
+  }
+
+  public function getProviderState() {
+    return $this->provider->getState();
   }
 
   public function getAccessToken() {
